@@ -1,0 +1,66 @@
+name: openfoodfacts-lab5
+
+x-model-build: &model-build
+  context: .
+  dockerfile: Dockerfile.model
+
+x-spark-environment: &spark-environment
+  SPARK_LOCAL_IP: 127.0.0.1
+  PYSPARK_PYTHON: python3
+  PYSPARK_DRIVER_PYTHON: python3
+
+services:
+  wordcount:
+    build:
+      <<: *model-build
+      target: runtime
+    environment: *spark-environment
+    volumes:
+      - ./data/sample:/opt/application/data/sample:ro
+    entrypoint: ["/opt/spark/bin/spark-submit"]
+    command:
+      - --master
+      - local[2]
+      - /opt/application/src/openfoodfacts_cluster/jobs/wordcount.py
+      - --input
+      - /opt/application/data/sample/wordcount.txt
+    
+
+  tests:
+    build:
+      <<: *model-build
+      target: test
+    environment: *spark-environment
+    volumes:
+      - ./output:/opt/application/output
+
+  model:
+    build:
+      <<: *model-build
+      target: runtime
+    environment:
+      <<: *spark-environment
+      INPUT_PATH: /opt/application/data/sample/openfoodfacts.tsv
+      OUTPUT_DIR: /opt/application/output/lab5
+      CLUSTER_COUNT: "4"
+      MODEL_SEED: "42"
+      MAX_ITERATIONS: "30"
+    volumes:
+      - ./data/sample:/opt/application/data/sample:ro
+      - ./output:/opt/application/output
+    
+  distribution:
+    build:
+      <<: *model-build
+      target: runtime
+    user: root
+    volumes:
+      - ./output:/opt/application/output:ro
+      - ./dist:/opt/application/dist
+    entrypoint: ["python3"]
+    command:
+      - scripts/build_distribution.py
+      - --output-dir
+      - output/lab5
+      - --destination
+      - dist/lab5-model

@@ -1,0 +1,34 @@
+FROM apache/spark:3.5.9-scala2.12-java17-python3-ubuntu AS runtime
+
+USER root
+WORKDIR /opt/application
+
+COPY pyproject.toml setup.py ./
+COPY src ./src
+RUN python3 -m pip install --no-cache-dir .
+
+COPY config ./config
+COPY data/sample ./data/sample
+COPY scripts ./scripts
+
+ENV PYTHONPATH=/opt/application/src:/opt/spark/python:/opt/spark/python/lib/py4j-0.10.9.7-src.zip \
+    SPARK_LOCAL_DIRS=/tmp/spark \
+    SPARK_CONF_DIR=/opt/application/config
+
+RUN mkdir -p /opt/application/output /tmp/spark \
+    && chown -R spark:spark /opt/application /tmp/spark
+
+USER spark
+
+ENTRYPOINT [ "/opt/spark/bin/spark-submit" ]
+CMD [ "--master", "local[2]", "/opt/application/src/openfoodfacts_cluster/jobs/run_lab5.py" ]
+
+FROM runtime AS test
+
+USER root
+RUN python3 -m pip install --no-cache-dir ".[dev]"
+COPY tests ./tests
+USER spark 
+
+ENTRYPOINT [ "python3", "-m", "pytest" ]
+CMD ["tests"]
