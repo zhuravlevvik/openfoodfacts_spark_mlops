@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  published-image-acceptance:
+  published-images-acceptance:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
@@ -76,9 +76,12 @@ jobs:
         run: |
           docker pull "$OPENFOODFACTS_IMAGE:$IMAGE_TAG"
           docker pull "$OPENFOODFACTS_IMAGE:test-$IMAGE_TAG"
+          docker pull "$OPENFOODFACTS_IMAGE:hbase-$IMAGE_TAG"
 
-      - name: Validate Compose configuration
-        run: docker compose -f compose.lab5.yml config --quiet
+      - name: Validate Compose configurations
+        run: |
+          docker compose -f compose.lab5.yml config --quiet
+          docker compose -f compose.lab6.yml config --quiet
 
       - name: Prepare writable artifact directories
         run: |
@@ -134,6 +137,58 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      - name: Start published Lab 6 HBase image
+        run: >-
+          docker compose -f compose.lab6.yml up
+          --detach --no-build --wait hbase
+
+      - name: Seed Lab 6 source table
+        run: >-
+          docker compose -f compose.lab6.yml run
+          --rm --no-deps hbase-seed
+
+      - name: Run published Lab 6 model image
+        run: >-
+          docker compose -f compose.lab6.yml run
+          --rm --no-deps model-lab6
+
+      - name: Inspect accepted Lab 6 HBase results
+        run: |
+          docker compose -f compose.lab6.yml run --rm --no-deps \
+            --entrypoint python3 hbase-seed \
+            -m openfoodfacts_cluster.jobs.inspect_hbase \
+            | tee output/lab6-hbase.txt
+
+      - name: Verify accepted Lab 6 outputs
+        run: |
+          test -s output/lab6/metrics.json
+          test -d output/lab6/model
+          test -n "$(find output/lab6/model -type f -print -quit)"
+          test -n "$(find output/lab6/predictions -name 'part-*.json' -print -quit)"
+          grep -Fxq "off_products_raw: 40 rows" output/lab6-hbase.txt
+          grep -Fxq "off_cluster_results: 40 rows" output/lab6-hbase.txt
+          grep -Fxq "off_model_runs: 1 rows" output/lab6-hbase.txt
+          grep -Eq "status=complete$" output/lab6-hbase.txt
+          python -c 'import json; data=json.load(open("output/lab6/metrics.json")); assert data["input_rows"] == 40; assert data["usable_rows"] == 40; assert data["cluster_count"] == 4'
+
+      - name: Upload accepted Lab 6 artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: lab6-accepted-${{ steps.source.outputs.tag }}
+          path: |
+            output/lab6-hbase.txt
+            output/lab6/metrics.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Collect Lab 6 Compose logs
+        if: always()
+        run: >-
+          docker compose -f compose.lab6.yml logs
+          --no-color --tail=500 || true
+
       - name: Clean up Compose resources
         if: always()
-        run: docker compose -f compose.lab5.yml down --volumes --remove-orphans || true
+        run: |
+          docker compose -f compose.lab6.yml down --volumes --remove-orphans || true
+          docker compose -f compose.lab5.yml down --volumes --remove-orphans || true

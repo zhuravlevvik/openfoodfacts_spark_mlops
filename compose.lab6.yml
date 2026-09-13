@@ -4,6 +4,9 @@ x-model-build: &model-build
   context: .
   dockerfile: Dockerfile.model
 
+x-runtime-image: &runtime-image "${OPENFOODFACTS_IMAGE:-openfoodfacts-cluster}:${IMAGE_TAG:-local}"
+x-hbase-image: &hbase-image "${OPENFOODFACTS_IMAGE:-openfoodfacts-cluster}:hbase-${IMAGE_TAG:-local}"
+
 x-model-environment: &model-environment
   SPARK_LOCAL_IP: 127.0.0.1
   PYSPARK_PYTHON: python3
@@ -15,6 +18,7 @@ x-model-environment: &model-environment
 
 services:
   hbase:
+    image: *hbase-image
     build:
       context: .
       dockerfile: Dockerfile.hbase
@@ -26,11 +30,12 @@ services:
     healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/version/cluster"]
       interval: 5s
-      timeout: 3s
-      retries: 30
-      start_period: 30s
+      timeout: 5s
+      retries: 60
+      start_period: 60s
     
   hbase-seed:
+    image: *runtime-image
     build:
       <<: *model-build
       target: runtime
@@ -42,6 +47,7 @@ services:
     command: ["-m", "openfoodfacts_cluster.jobs.seed_hbase"]
 
   model-lab6:
+    image: *runtime-image
     build:
       <<: *model-build
       target: runtime

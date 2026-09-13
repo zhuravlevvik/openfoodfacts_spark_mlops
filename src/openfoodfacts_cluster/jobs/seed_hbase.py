@@ -6,7 +6,7 @@ import csv
 import os
 
 from openfoodfacts_cluster.config import Settings
-from openfoodfacts_cluster.contracts import prediction_to_hbase
+from openfoodfacts_cluster.contracts import product_to_hbase
 from openfoodfacts_cluster.hbase import HBaseRestClient
 
 
@@ -17,7 +17,7 @@ def main() -> None:
         products = list(csv.DictReader(stream, delimiter="\t"))
 
     rows = (
-        (str(product["code"]).strip(), prediction_to_hbase(product))
+        (str(product["code"]).strip(), product_to_hbase(product))
         for product in products
         if str(product.get("code") or "").strip()
     )

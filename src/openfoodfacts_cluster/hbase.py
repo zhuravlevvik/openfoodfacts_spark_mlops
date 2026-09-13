@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+from collections.abc import Iterable
 from typing import Any
 from urllib.parse import quote
 
@@ -21,7 +22,7 @@ def _decode(value: str) -> str:
 
 class HBaseRestClient:
     def __init__(self, base_url: str, timeout_seconds: float = 15.0) -> None:
-        self.base_url = base_url
+        self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
         self.session = requests.Session()
         retry = Retry(
@@ -65,6 +66,13 @@ class HBaseRestClient:
             timeout=self.timeout_seconds,
         )
         response.raise_for_status()
+
+    def put_rows(self, table: str, rows: Iterable[tuple[str, dict[str, str]]]) -> int:
+        count = 0
+        for row_key, cells in rows:
+            self.put_row(table, row_key, cells)
+            count += 1
+        return count
 
     def scan_rows(self, table: str, limit: int) -> list[tuple[str, dict[str, str]]]:
         if limit <= 0:

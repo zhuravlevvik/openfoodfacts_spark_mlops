@@ -40,6 +40,34 @@ def test_put_row_encodes_row_keys_columns_and_values(monkeypatch) -> None:
     assert row["Cell"][0] == {"column": b64("info:name"), "$": b64("Café")}
 
 
+def test_put_rows_writes_every_row_and_returns_count(monkeypatch) -> None:
+    client = HBaseRestClient("http://hbase:8080/")
+    captured = []
+
+    monkeypatch.setattr(
+        client,
+        "put_row",
+        lambda table, row_key, cells: captured.append((table, row_key, cells)),
+    )
+
+    count = client.put_rows(
+        "products",
+        iter(
+            [
+                ("1", {"info:name": "Oats"}),
+                ("2", {"info:name": "Milk"}),
+            ]
+        ),
+    )
+
+    assert client.base_url == "http://hbase:8080"
+    assert count == 2
+    assert captured == [
+        ("products", "1", {"info:name": "Oats"}),
+        ("products", "2", {"info:name": "Milk"}),
+    ]
+
+
 def test_scan_rows_decodes_hbase_json(monkeypatch) -> None:
     client = HBaseRestClient("http://hbase:8080")
     response = FakeResponse(
