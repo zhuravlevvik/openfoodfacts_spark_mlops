@@ -1,0 +1,67 @@
+name: openfoodfacts-lab6
+
+x-model-build: &model-build
+  context: .
+  dockerfile: Dockerfile.model
+
+x-model-environment: &model-environment
+  SPARK_LOCAL_IP: 127.0.0.1
+  PYSPARK_PYTHON: python3
+  PYSPARK_DRIVER_PYTHON: python3
+  HBASE_URL: http://hbase:8080
+  HBASE_RAW_TABLE: off_products_raw
+  HBASE_RESULTS_TABLE: off_cluster_results
+  HBASE_RUNS_TABLE: off_model_runs
+
+services:
+  hbase:
+    build:
+      context: .
+      dockerfile: Dockerfile.hbase
+    ports:
+      - "8080:8080"
+      - "16010:16010"
+    volumes:
+      - hbase-data:/var/lib/hbase
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/version/cluster"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+    
+  hbase-seed:
+    build:
+      <<: *model-build
+      target: runtime
+    depends_on:
+      hbase:
+        condition: service_healthy
+    environment: *model-environment
+    entrypoint: ["python3"]
+    command: ["-m", "openfoodfacts_cluster.jobs.seed_hbase"]
+
+  model-lab6:
+    build:
+      <<: *model-build
+      target: runtime
+    depends_on:
+      hbase-seed:
+        condition: service_completed_successfully
+    environment:
+      <<: *model-environment
+      OUTPUT_DIR: /opt/application/output/lab6
+      CLUSTER_COUNT: "4"
+      MODEL_SEED: "42"
+      MAX_ITERATIONS: "30"
+      HBASE_SCAN_LIMIT: "10000"
+    volumes:
+      - ./output:/opt/application/output
+    entrypoint: ["/opt/spark/bin/spark-submit"]
+    command:
+      - --master
+      - local[2]
+      - /opt/application/src/openfoodfacts_cluster/jobs/run_lab6.py
+
+volumes:
+  hbase-data:

@@ -1,0 +1,27 @@
+FROM eclipse-temurin:17-jre-jammy
+
+ARG HBASE_VERSION=2.6.6
+ARG HBASE_ARCHIVE_URL=https://archive.apache.org/dist/hbase/${HBASE_VERSION}/hbase-${HBASE_VERSION}-bin.tar.gz
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends bash curl procps \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl --fail --location --retry 5 "${HBASE_ARCHIVE_URL}" -o /tmp/hbase.tar.gz \
+    && mkdir -p /opt/hbase \
+    && tar -xzf /tmp/hbase.tar.gz --strip-components=1 -C /opt/hbase \
+    && rm /tmp/hbase.tar.gz
+
+ENV HBASE_HOME=/opt/hbase \
+    HBASE_CONF_DIR=/opt/hbase/conf \
+    PATH=/opt/hbase/bin:${PATH}
+
+COPY config/hbase/hbase-site.xml /opt/hbase/conf/hbase-site.xml
+COPY scripts/hbase-entrypoint.sh /usr/local/bin/hbase-entrypoint.sh
+
+RUN chmod 0755 /usr/local/bin/hbase-entrypoint.sh \
+    && mkdir -p /var/lib/hbase/data /var/lib/hbase/zookeeper
+
+EXPOSE 8080 16010
+VOLUME ["/var/lib/hbase"]
+
+ENTRYPOINT ["/usr/local/bin/hbase-entrypoint.sh"]
