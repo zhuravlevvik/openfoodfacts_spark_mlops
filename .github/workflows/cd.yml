@@ -88,7 +88,7 @@ jobs:
       - name: Re-run tests from published test image
         run: >-
           docker compose -f compose.lab5.yml run
-          --rm --no-deps --no-build
+          --rm --no-deps
           tests tests
           --cov=openfoodfacts_cluster
           --cov-report=term-missing
@@ -97,19 +97,19 @@ jobs:
       - name: Verify published runtime image with WordCount
         shell: bash
         run: |
-          docker compose -f compose.lab5.yml run --rm --no-deps --no-build wordcount \
+          docker compose -f compose.lab5.yml run --rm --no-deps wordcount \
             | tee output/wordcount.txt
           grep -q $'spark\t' output/wordcount.txt
 
       - name: Train model with published runtime image
         run: >-
           docker compose -f compose.lab5.yml run
-          --rm --no-deps --no-build model
+          --rm --no-deps model
 
       - name: Build distribution with published runtime image
         run: >-
           docker compose -f compose.lab5.yml run
-          --rm --no-deps --no-build distribution
+          --rm --no-deps distribution
 
       - name: Verify acceptance outputs
         run: |
