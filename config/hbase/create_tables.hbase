@@ -1,0 +1,3 @@
+create 'off_products_raw', 'info', 'nutrition'
+create 'off_cluster_results', 'info', 'model'
+create 'off_model_runs', 'run'
