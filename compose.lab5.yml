@@ -4,6 +4,9 @@ x-model-build: &model-build
   context: .
   dockerfile: Dockerfile.model
 
+x-runtime-image: &runtime-image "${OPENFOODFACTS_IMAGE:-openfoodfacts-cluster}:${IMAGE_TAG:-local}"
+x-test-image: &test-image "${OPENFOODFACTS_IMAGE:-openfoodfacts-cluster}:test-${IMAGE_TAG:-local}"
+
 x-spark-environment: &spark-environment
   SPARK_LOCAL_IP: 127.0.0.1
   PYSPARK_PYTHON: python3
@@ -11,6 +14,7 @@ x-spark-environment: &spark-environment
 
 services:
   wordcount:
+    image: *runtime-image
     build:
       <<: *model-build
       target: runtime
@@ -27,6 +31,7 @@ services:
     
 
   tests:
+    image: *test-image
     build:
       <<: *model-build
       target: test
@@ -35,6 +40,7 @@ services:
       - ./output:/opt/application/output
 
   model:
+    image: *runtime-image
     build:
       <<: *model-build
       target: runtime
@@ -50,6 +56,7 @@ services:
       - ./output:/opt/application/output
     
   distribution:
+    image: *runtime-image
     build:
       <<: *model-build
       target: runtime

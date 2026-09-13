@@ -10,7 +10,7 @@ setup(
     package_dir={"": "src"},
     packages=find_packages("src"),
     install_requires=["numpy>=1.26,<3", "requests>=2.32,<3"],
-    install_require={
+    extras_require={
         "local": ["pyspark==3.5.9"],
         "dev": ["pytest>=8.3,<9", "pytest-cov>=6,<8", "ruff>=0.11,<1"],
     },

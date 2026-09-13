@@ -50,7 +50,7 @@ def clean_raw_products(frame: DataFrame) -> DataFrame:
         cleaned = cleaned.withColumn(column, F.trim(F.col(column).cast("string")))
 
     for column, (minimum, maximum) in FEATURE_BOUNDS.items():
-        numeric = F.regexp_replace(F.trim(F.col(column)), ",", ".'").cast("double")
+        numeric = F.regexp_replace(F.trim(F.col(column)), ",", ".").cast("double")
         valid = numeric.isNotNull() & ~F.isnan(numeric) & numeric.between(minimum, maximum)
         cleaned = cleaned.withColumn(column, F.when(valid, numeric))
 

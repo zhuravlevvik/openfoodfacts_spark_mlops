@@ -10,7 +10,13 @@ from pathlib import Path
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output_dir", type=Path, default=Path("output/lab5"))
+    parser.add_argument(
+        "--output-dir",
+        "--output_dir",
+        dest="output_dir",
+        type=Path,
+        default=Path("output/lab5"),
+    )
     parser.add_argument("--destination", type=Path, default=Path("dist/lab5-model"))
 
     return parser.parse_args()

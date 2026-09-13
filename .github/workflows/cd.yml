@@ -1,0 +1,139 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Published GHCR image tag to verify
+        required: true
+        default: latest
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: cd-${{ github.event.workflow_run.head_sha || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  published-image-acceptance:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Resolve source commit and image tag
+        id: source
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CI_COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+          MANUAL_IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_run" ]]; then
+            source_ref="$CI_COMMIT_SHA"
+            image_tag="$CI_COMMIT_SHA"
+          else
+            source_ref="$GITHUB_SHA"
+            image_tag="$MANUAL_IMAGE_TAG"
+          fi
+          test -n "$source_ref"
+          test -n "$image_tag"
+          echo "ref=$source_ref" >> "$GITHUB_OUTPUT"
+          echo "tag=$image_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout matching source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.source.outputs.ref }}
+
+      - name: Resolve image name
+        shell: bash
+        env:
+          RESOLVED_TAG: ${{ steps.source.outputs.tag }}
+        run: |
+          repository="${GITHUB_REPOSITORY,,}"
+          echo "OPENFOODFACTS_IMAGE=ghcr.io/$repository" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG=$RESOLVED_TAG" >> "$GITHUB_ENV"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull exact images published by CI
+        run: |
+          docker pull "$OPENFOODFACTS_IMAGE:$IMAGE_TAG"
+          docker pull "$OPENFOODFACTS_IMAGE:test-$IMAGE_TAG"
+
+      - name: Validate Compose configuration
+        run: docker compose -f compose.lab5.yml config --quiet
+
+      - name: Prepare writable artifact directories
+        run: |
+          mkdir -p output dist
+          chmod 0777 output dist
+
+      - name: Re-run tests from published test image
+        run: >-
+          docker compose -f compose.lab5.yml run
+          --rm --no-deps --no-build
+          tests tests
+          --cov=openfoodfacts_cluster
+          --cov-report=term-missing
+          --cov-report=xml:/opt/application/output/coverage.xml
+
+      - name: Verify published runtime image with WordCount
+        shell: bash
+        run: |
+          docker compose -f compose.lab5.yml run --rm --no-deps --no-build wordcount \
+            | tee output/wordcount.txt
+          grep -q $'spark\t' output/wordcount.txt
+
+      - name: Train model with published runtime image
+        run: >-
+          docker compose -f compose.lab5.yml run
+          --rm --no-deps --no-build model
+
+      - name: Build distribution with published runtime image
+        run: >-
+          docker compose -f compose.lab5.yml run
+          --rm --no-deps --no-build distribution
+
+      - name: Verify acceptance outputs
+        run: |
+          test -s output/coverage.xml
+          test -s output/wordcount.txt
+          test -s output/lab5/metrics.json
+          test -d output/lab5/model
+          test -n "$(find output/lab5/model -type f -print -quit)"
+          test -n "$(find output/lab5/predictions -name 'part-*.json' -print -quit)"
+          test -s dist/lab5-model.zip
+          python -c 'import json; data=json.load(open("output/lab5/metrics.json")); assert data["input_rows"] == 42; assert data["usable_rows"] == 40; assert data["cluster_count"] == 4'
+
+      - name: Upload accepted Lab 5 distribution
+        uses: actions/upload-artifact@v7
+        with:
+          name: lab5-accepted-${{ steps.source.outputs.tag }}
+          path: |
+            output/coverage.xml
+            output/wordcount.txt
+            output/lab5/metrics.json
+            dist/lab5-model.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Clean up Compose resources
+        if: always()
+        run: docker compose -f compose.lab5.yml down --volumes --remove-orphans || true
