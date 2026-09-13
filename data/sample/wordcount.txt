@@ -1,0 +1,3 @@
+Spark processes data in parallel.
+Spark keeps transformations lazy until an action needs a result.
+Data partitions let Spark distribute work across executors.

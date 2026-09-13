@@ -1,0 +1,43 @@
+code	product_name	categories	energy-kcal_100g	fat_100g	saturated-fat_100g	carbohydrates_100g	sugars_100g	fiber_100g	proteins_100g	salt_100g
+100000000001	Mineral water	Beverages,Waters	0	0	0	0	0	0	0	0.01
+100000000002	Sparkling water	Beverages,Waters	0	0	0	0	0	0	0	0.03
+100000000003	Cola drink	Beverages,Sodas	42	0	0	10.6	10.6	0	0	0.02
+100000000004	Orange juice	Beverages,Juices	45	0.2	0	10.4	8.4	0.2	0.7	0.01
+100000000005	Apple juice	Beverages,Juices	46	0.1	0	11.3	10.0	0.2	0.1	0.01
+100000000006	Black tea drink	Beverages,Tea	28	0	0	6.8	6.5	0	0	0.02
+100000000007	Greek yogurt	Dairies,Yogurts	97	5.0	3.2	3.8	3.8	0	9.0	0.10
+100000000008	Natural yogurt	Dairies,Yogurts	61	3.3	2.1	4.7	4.7	0	3.5	0.12
+100000000009	Cottage cheese	Dairies,Cheeses	98	4.3	2.7	3.4	3.4	0	11.1	0.75
+100000000010	Cheddar cheese	Dairies,Cheeses	403	33.1	21.1	1.3	0.5	0	24.9	1.80
+100000000011	Gouda cheese	Dairies,Cheeses	356	27.4	17.6	2.2	2.2	0	24.9	2.00
+100000000012	Whole milk	Dairies,Milks	61	3.3	2.1	4.8	4.8	0	3.2	0.10
+100000000013	Oat flakes	Cereals,Breakfasts	370	7.0	1.2	60.0	1.0	10.0	13.0	0.01
+100000000014	Corn flakes	Cereals,Breakfasts	357	0.9	0.2	80.0	8.0	3.0	7.0	1.10
+100000000015	Wholegrain bread	Breads	247	3.4	0.6	41.0	5.0	7.0	9.0	1.00
+100000000016	White bread	Breads	265	3.2	0.7	49.0	5.0	2.7	9.0	1.20
+100000000017	Cooked rice	Cereals,Rice	130	0.3	0.1	28.0	0.1	0.4	2.7	0.01
+100000000018	Dry pasta	Cereals,Pasta	371	1.5	0.3	75.0	3.0	3.2	13.0	0.03
+100000000019	Milk chocolate	Snacks,Chocolate	535	30.0	18.0	59.0	52.0	3.0	7.0	0.20
+100000000020	Dark chocolate	Snacks,Chocolate	598	43.0	26.0	46.0	24.0	11.0	8.0	0.02
+100000000021	Butter cookies	Snacks,Biscuits	502	24.0	14.0	65.0	28.0	2.0	6.0	0.65
+100000000022	Potato chips	Snacks,Chips	536	34.0	3.0	52.0	0.5	4.5	6.5	1.30
+100000000023	Mixed nuts	Snacks,Nuts	607	54.0	8.0	21.0	4.0	8.0	20.0	0.03
+100000000024	Peanut butter	Spreads,Nut butters	588	50.0	10.0	20.0	9.0	6.0	25.0	0.60
+100000000025	Canned tuna	Seafood,Fish	116	1.0	0.2	0	0	0	26.0	0.90
+100000000026	Chicken breast	Meats,Poultry	165	3.6	1.0	0	0	0	31.0	0.18
+100000000027	Lentils cooked	Legumes,Lentils	116	0.4	0.1	20.0	1.8	7.9	9.0	0.01
+100000000028	Chickpeas cooked	Legumes,Chickpeas	164	2.6	0.3	27.4	4.8	7.6	8.9	0.02
+100000000029	Tomato soup	Meals,Soups	40	1.0	0.2	6.5	4.0	1.2	1.5	0.70
+100000000030	Vegetable soup	Meals,Soups	35	0.8	0.1	5.5	2.0	1.5	1.3	0.65
+100000000031	Olive oil	Oils	884	100	14	0	0	0	0	0
+100000000032	Butter	Dairies,Fats	717	81.1	51.4	0.1	0.1	0	0.9	0.03
+100000000033	Strawberry jam	Spreads,Jams	250	0.1	0	61.0	55.0	1.0	0.4	0.02
+100000000034	Honey	Sweeteners	304	0	0	82.0	82.0	0.2	0.3	0.01
+100000000035	Protein bar	Snacks,Bars	360	10	4	35	12	8	30	0.45
+100000000036	Energy bar	Snacks,Bars	410	12	3	60	28	5	10	0.30
+100000000037	Incomplete cereal	Cereals	380		1.5	70	12		8	0.5
+100000000038	Comma yogurt	Dairies,Yogurts	95	4,8	3,0	5,0	4,5	0	8,5	0,12
+100000000039	Invalid negative snack	Snacks	450	-3	5	55	25	2	7	0.8
+100000000040	Invalid energy product	Unknown	1200	20	5	40	10	3	10	1.0
+100000000040	Duplicate product	Unknown	400	20	5	40	10	3	10	1.0
+	Missing code	Unknown	100	1	1	10	5	1	2	0.1
