@@ -21,7 +21,7 @@ RUN mkdir -p /opt/application/output /tmp/spark \
 USER spark
 
 ENTRYPOINT [ "/opt/spark/bin/spark-submit" ]
-CMD [ "--master", "local[2]", "/opt/application/src/openfoodfacts_cluster/jobs/run_lab.py" ]
+CMD [ "--master", "local[2]", "/opt/application/src/openfoodfacts_cluster/jobs/run_lab5.py" ]
 
 FROM runtime AS test
 
