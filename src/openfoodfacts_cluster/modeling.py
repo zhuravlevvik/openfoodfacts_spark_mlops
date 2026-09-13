@@ -38,7 +38,7 @@ def build_pipeline(cluster_count: int, seed: int, max_iterations: int) -> Pipeli
             ),
             VectorAssembler(
                 inputCols=imputed_columns,
-                outputCols="unscaled_features",
+                outputCol="unscaled_features",
                 handleInvalid="error",
             ),
             StandardScaler(
