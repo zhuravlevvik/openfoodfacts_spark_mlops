@@ -1,0 +1,26 @@
+FROM sbtscala/scala-sbt:eclipse-temurin-17.0.15_6_1.11.1_2.12.20 AS builder
+
+WORKDIR /workspace
+COPY data-mart/project ./project
+COPY data-mart/build.sbt ./build.sbt
+RUN sbt update
+
+COPY data-mart/src ./src
+RUN sbt test assembly
+
+FROM apache/spark:3.5.9-scala2.12-java17-python3-ubuntu AS runtime
+
+USER root
+WORKDIR /opt/application
+COPY --from=builder /workspace/target/scala-2.12/openfoodfacts-data-mart.jar ./data-mart.jar
+COPY config/log4j2.properties /opt/application/config/log4j2.properties
+
+ENV SPARK_CONF_DIR=/opt/application/config
+
+RUN chown -R spark:spark /opt/application
+USER spark
+
+EXPOSE 8081
+
+ENTRYPOINT ["/opt/spark/bin/spark-submit"]
+CMD ["--master", "local[2]", "--class", "edu.itmo.datamart.Main", "/opt/application/data-mart.jar"]
