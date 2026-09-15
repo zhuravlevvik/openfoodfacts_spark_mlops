@@ -89,6 +89,12 @@ jobs:
             --tag "$OPENFOODFACTS_IMAGE:data-mart-latest" \
             .
 
+      - name: Verify HBase ServiceLoader descriptors in data mart image
+        run: |
+          docker run --rm --entrypoint python3 \
+            "$OPENFOODFACTS_IMAGE:data-mart-$GITHUB_SHA" \
+            -c 'import zipfile; jar=zipfile.ZipFile("/opt/application/data-mart.jar"); required="META-INF/services/org.apache.hadoop.hbase.security.provider.SaslClientAuthenticationProvider"; assert required in jar.namelist(), f"missing {required}"'
+
       - name: Prepare writable artifact directories
         run: |
           mkdir -p output dist

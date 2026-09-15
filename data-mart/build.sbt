@@ -39,8 +39,9 @@ lazy val root = (project in file("."))
     assembly / assemblyJarName := "openfoodfacts-data-mart.jar",
     assembly / test := {},
     assembly / assemblyMergeStrategy := {
-      case PathList("META-INF", xs @ _*) => MergeStrategy.discard
-      case "module-info.class"          => MergeStrategy.discard
-      case other                        => MergeStrategy.first
+      case PathList("META-INF", "services", _ @ _*) => MergeStrategy.concat
+      case PathList("META-INF", _ @ _*)             => MergeStrategy.discard
+      case "module-info.class"                       => MergeStrategy.discard
+      case _                                         => MergeStrategy.first
     }
   )
