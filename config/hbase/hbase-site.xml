@@ -19,11 +19,11 @@
   </property>
   <property>
     <name>hbase.zookeeper.quorum</name>
-    <value>__HBASE_ADVERTISE_HOST__</value>
+    <value>127.0.0.1</value>
   </property>
   <property>
     <name>hbase.zookeeper.property.clientPortAddress</name>
-    <value>__HBASE_ADVERTISE_HOST__</value>
+    <value>0.0.0.0</value>
   </property>
   <property>
     <name>hbase.master.port</name>
