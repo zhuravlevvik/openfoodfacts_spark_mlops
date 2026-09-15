@@ -5,7 +5,6 @@ import org.apache.spark.ml.functions.vector_to_array
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.DoubleType
-import org.apache.spark.sql.catalyst.dsl.ExpressionConversions
 
 object ProductPreprocessor {
     final case class Feature(name: String, family: String, qualifier: String, maximum: Double)

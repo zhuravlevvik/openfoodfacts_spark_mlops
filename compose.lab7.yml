@@ -4,6 +4,10 @@ x-model-build: &model-build
   context: .
   dockerfile: Dockerfile.model
 
+x-runtime-image: &runtime-image "${OPENFOODFACTS_IMAGE:-openfoodfacts-cluster}:${IMAGE_TAG:-local}"
+x-hbase-image: &hbase-image "${OPENFOODFACTS_IMAGE:-openfoodfacts-cluster}:hbase-${IMAGE_TAG:-local}"
+x-data-mart-image: &data-mart-image "${OPENFOODFACTS_IMAGE:-openfoodfacts-cluster}:data-mart-${IMAGE_TAG:-local}"
+
 x-hbase-environment: &hbase-environment
   HBASE_URL: http://hbase:8080
   HBASE_ZOOKEEPER_QUORUM: hbase
@@ -17,6 +21,7 @@ x-hbase-environment: &hbase-environment
 
 services:
   hbase:
+    image: *hbase-image
     hostname: hbase
     build:
       context: .
@@ -36,6 +41,7 @@ services:
       start_period: 30s
 
   hbase-seed:
+    image: *runtime-image
     build:
       <<: *model-build
       target: runtime
@@ -47,6 +53,7 @@ services:
     command: ["-m", "openfoodfacts_cluster.jobs.seed_hbase"]
 
   data-mart:
+    image: *data-mart-image
     build:
       context: .
       dockerfile: Dockerfile.datamart
@@ -69,6 +76,7 @@ services:
       start_period: 30s
 
   model-lab7:
+    image: *runtime-image
     build:
       <<: *model-build
       target: runtime

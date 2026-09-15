@@ -121,7 +121,7 @@ final class HBaseSparkRepository(config: ServiceConfig, spark: SparkSession) {
     def writeMetadata(metadata: DatasetMetadata): Unit = {
         import spark.implicits._
         val row = Seq(("current", metadata.version, metadata.count.toString, metadata.createdAt))
-            .toDf("metadata_key", "version", "count", "created_at")
+            .toDF("metadata_key", "version", "count", "created_at")
         write(row, metadataCatalog)
     }
 
@@ -131,7 +131,7 @@ final class HBaseSparkRepository(config: ServiceConfig, spark: SparkSession) {
             .select("version", "count", "created_at")
             .take(1)
         if (rows.isEmpty) throw new IllegalStateException("dataset has not been refreshed yet")
-        DatasetMetadata(rows(0).getString(0), rows(0).getString(1), rows(0).getString(2))
+        DatasetMetadata(rows(0).getString(0), rows(0).getString(1).toInt, rows(0).getString(2))
     }
 
     def preparedForVersion(version: String): DataFrame = {
@@ -197,7 +197,7 @@ final class HBaseSparkRepository(config: ServiceConfig, spark: SparkSession) {
                     request.silhouette.toString,
                     "data-mart-spark-connector"
                 )
-            ).toDf("run_id", "status", "completed_at", "published_rows", "silhouette", "source")
+            ).toDF("run_id", "status", "completed_at", "published_rows", "silhouette", "source")
             write(runRow, runsCatalog)
             joinedCount
         } finally {

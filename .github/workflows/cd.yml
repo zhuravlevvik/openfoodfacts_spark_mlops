@@ -28,7 +28,7 @@ jobs:
       (github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - name: Resolve source commit and image tag
@@ -77,11 +77,13 @@ jobs:
           docker pull "$OPENFOODFACTS_IMAGE:$IMAGE_TAG"
           docker pull "$OPENFOODFACTS_IMAGE:test-$IMAGE_TAG"
           docker pull "$OPENFOODFACTS_IMAGE:hbase-$IMAGE_TAG"
+          docker pull "$OPENFOODFACTS_IMAGE:data-mart-$IMAGE_TAG"
 
       - name: Validate Compose configurations
         run: |
           docker compose -f compose.lab5.yml config --quiet
           docker compose -f compose.lab6.yml config --quiet
+          docker compose -f compose.lab7.yml config --quiet
 
       - name: Prepare writable artifact directories
         run: |
@@ -181,14 +183,68 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Collect Lab 6 Compose logs
+      - name: Stop Lab 6 before Lab 7 acceptance
         if: always()
+        run: |
+          docker compose -f compose.lab6.yml logs \
+            --no-color --tail=500 > output/lab6-compose.log 2>&1 || true
+          docker compose -f compose.lab6.yml down \
+            --volumes --remove-orphans || true
+
+      - name: Start published Lab 7 data mart stack
         run: >-
-          docker compose -f compose.lab6.yml logs
-          --no-color --tail=500 || true
+          docker compose -f compose.lab7.yml up
+          --detach --no-build --wait data-mart
+
+      - name: Run published Lab 7 model through the data mart
+        shell: bash
+        run: |
+          docker compose -f compose.lab7.yml run --rm --no-deps model-lab7 \
+            | tee output/lab7-model.txt
+
+      - name: Inspect accepted Lab 7 HBase tables
+        shell: bash
+        run: |
+          docker compose -f compose.lab7.yml run --rm --no-deps \
+            --entrypoint python3 hbase-seed \
+            -m openfoodfacts_cluster.jobs.inspect_hbase \
+            | tee output/lab7-hbase.txt
+
+      - name: Verify accepted Lab 7 outputs
+        run: |
+          test -s output/lab7/metrics.json
+          test -d output/lab7/model
+          test -n "$(find output/lab7/model -type f -print -quit)"
+          test -n "$(find output/lab7/predictions -name 'part-*.json' -print -quit)"
+          grep -Eq "trained=40, published=40, silhouette=" output/lab7-model.txt
+          grep -Fxq "off_products_raw: 40 rows" output/lab7-hbase.txt
+          grep -Fxq "off_products_prepared: 40 rows" output/lab7-hbase.txt
+          grep -Fxq "off_datamart_meta: 1 rows" output/lab7-hbase.txt
+          grep -Fxq "off_cluster_results: 40 rows" output/lab7-hbase.txt
+          grep -Fxq "off_model_runs: 1 rows" output/lab7-hbase.txt
+          grep -Eq "status=complete$" output/lab7-hbase.txt
+          python -c 'import json; data=json.load(open("output/lab7/metrics.json")); assert data["input_rows"] == 40; assert data["usable_rows"] == 40; assert data["cluster_count"] == 4; assert data["preprocessing_owner"] == "scala-data-mart"'
+
+      - name: Upload accepted Lab 7 artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: lab7-accepted-${{ steps.source.outputs.tag }}
+          path: |
+            output/lab7-model.txt
+            output/lab7-hbase.txt
+            output/lab7/metrics.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Collect Lab 6 and Lab 7 Compose logs
+        if: always()
+        run: |
+          test ! -f output/lab6-compose.log || cat output/lab6-compose.log
+          docker compose -f compose.lab7.yml logs --no-color --tail=500 || true
 
       - name: Clean up Compose resources
         if: always()
         run: |
+          docker compose -f compose.lab7.yml down --volumes --remove-orphans || true
           docker compose -f compose.lab6.yml down --volumes --remove-orphans || true
           docker compose -f compose.lab5.yml down --volumes --remove-orphans || true

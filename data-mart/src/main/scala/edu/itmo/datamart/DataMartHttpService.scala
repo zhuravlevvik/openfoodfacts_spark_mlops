@@ -53,6 +53,9 @@ final class DataMartHttpService(config: ServiceConfig, store: DatasetStore) {
                     }
                     respond(exchange, 200, HealthResponse("ok", "openfoodfacts-data-mart"))
                 case ("POST", "/v1/datasets/refresh") =>
+                    val metadata = store.refresh()
+                    respond(exchange, 200, RefreshResponse(metadata.version, metadata.count, metadata.createdAt))
+                case ("GET", "/v1/datasets/current") =>
                     val offset = query(exchange, "offset", 0)
                     val limit = query(exchange, "limit", config.pageLimit)
                     respond(exchange, 200, store.currentPage(offset, limit))

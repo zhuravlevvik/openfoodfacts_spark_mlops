@@ -12,9 +12,9 @@ object Main {
             .config("spark.ui.enabled", "false")
             .getOrCreate()
         
-        spark.sparkContext.hadoopConfiguration.set("hbase.zookeper.quorum", config.zookeperQuorum)
+        spark.sparkContext.hadoopConfiguration.set("hbase.zookeeper.quorum", config.zookeeperQuorum)
         spark.sparkContext.hadoopConfiguration.set(
-            "hbase.zookeper.property.clientPort",
+            "hbase.zookeeper.property.clientPort",
             config.zookeeperPort.toString
         )
 

@@ -64,7 +64,7 @@ class DataMartClient:
 
             if version is None:
                 version = str(page["version"])
-            elif page["version"] != "version":
+            elif page["version"] != version:
                 raise RuntimeError("data mart version changed during pagination")
 
             items = [

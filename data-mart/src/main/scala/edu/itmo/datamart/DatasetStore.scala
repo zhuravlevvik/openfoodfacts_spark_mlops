@@ -5,7 +5,6 @@ import java.util.UUID
 
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
-import org.apache.hadoop.hbase.shaded.org.checkerframework.checker.units.qual.m
 
 final class DatasetStore(
     config: ServiceConfig,
@@ -53,7 +52,7 @@ final class DatasetStore(
                 productName = Option(row.getAs[String]("product_name")).getOrElse(""),
                 categories = Option(row.getAs[String]("categories")).getOrElse(""),
                 features = ProductPreprocessor.features.indices.map(index =>
-                    row.getAs[Double](s"$index")
+                    row.getAs[Double](s"f$index")
                 ).toVector
             )
         }

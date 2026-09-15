@@ -8,7 +8,7 @@ import uuid
 from openfoodfacts_cluster.config import Settings
 from openfoodfacts_cluster.contracts import utc_now
 from openfoodfacts_cluster.datamart import DataMartClient
-from openfoodfacts_cluster.modeling import train_and_persist
+from openfoodfacts_cluster.modeling import train_prepared_and_persist
 from openfoodfacts_cluster.spark import create_spark_session, dense_vector_from_array
 
 
@@ -32,7 +32,7 @@ def main() -> None:
                 ["code", "product_name", "categories", "feature_values"],
             ).withColumn("features", dense_vector_from_array("feature_values"))
 
-            result = train_and_persist(
+            result = train_prepared_and_persist(
                 prepared_frame=frame,
                 output_dir=settings.output_dir,
                 cluster_count=settings.cluster_count,
@@ -47,15 +47,19 @@ def main() -> None:
                         {"code": row["code"], "cluster": row["cluster"]}
                         for row in map(json.loads, stream)
                     )
-                response = client.publish_results(
-                    run_id=str(uuid.uuid4()),
-                    created_at=utc_now(),
-                    silhouette=result.silhouette,
-                    predictions=predictions,
-                )
-                print(
-                    f"Data mart version {version}: trained={len(products)}, "
-                    f"published={response['published_rows']}, silhouette={result.silhouette:.4f}"
-                )
+            response = client.publish_results(
+                run_id=str(uuid.uuid4()),
+                created_at=utc_now(),
+                silhouette=result.silhouette,
+                predictions=predictions,
+            )
+            print(
+                f"Data mart version {version}: trained={len(products)}, "
+                f"published={response['published_rows']}, silhouette={result.silhouette:.4f}"
+            )
     finally:
         spark.stop()
+
+
+if __name__ == "__main__":
+    main()
