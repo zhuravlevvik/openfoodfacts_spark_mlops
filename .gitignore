@@ -17,3 +17,6 @@ project/project/
 output/
 data/downloads/
 *.zip
+*.metals/
+*.bloop/
+*metals.sbt
