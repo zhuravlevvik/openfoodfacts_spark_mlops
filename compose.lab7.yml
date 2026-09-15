@@ -1,0 +1,95 @@
+name: openfoodfacts-lab7
+
+x-model-build: &model-build
+  context: .
+  dockerfile: Dockerfile.model
+
+x-hbase-environment: &hbase-environment
+  HBASE_URL: http://hbase:8080
+  HBASE_ZOOKEEPER_QUORUM: hbase
+  HBASE_ZOOKEEPER_PORT: "2181"
+  HBASE_RAW_TABLE: off_products_raw
+  HBASE_PREPARED_TABLE: off_products_prepared
+  HBASE_METADATA_TABLE: off_datamart_meta
+  HBASE_RESULTS_TABLE: off_cluster_results
+  HBASE_RUNS_TABLE: off_model_runs
+  HBASE_SCAN_LIMIT: "10000"
+
+services:
+  hbase:
+    hostname: hbase
+    build:
+      context: .
+      dockerfile: Dockerfile.hbase
+    ports:
+      - "18080:8080"
+      - "16011:16010"
+    environment:
+      HBASE_ADVERTISE_HOST: hbase
+    volumes:
+      - hbase-data:/var/lib/hbase
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/version/cluster"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+  hbase-seed:
+    build:
+      <<: *model-build
+      target: runtime
+    depends_on:
+      hbase:
+        condition: service_healthy
+    environment: *hbase-environment
+    entrypoint: ["python3"]
+    command: ["-m", "openfoodfacts_cluster.jobs.seed_hbase"]
+
+  data-mart:
+    build:
+      context: .
+      dockerfile: Dockerfile.datamart
+      target: runtime
+    depends_on:
+      hbase-seed:
+        condition: service_completed_successfully
+    environment:
+      <<: *hbase-environment
+      DATA_MART_HOST: 0.0.0.0
+      DATA_MART_PORT: "8081"
+      DATA_MART_PAGE_LIMIT: "1000"
+    ports:
+      - "18081:8081"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8081"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+  model-lab7:
+    build:
+      <<: *model-build
+      target: runtime
+    depends_on:
+      data-mart:
+        condition: service_healthy
+    environment:
+      SPARK_LOCAL_IP: 127.0.0.1
+      DATA_MART_URL: http://data-mart:8081
+      DATA_MART_PAGE_SIZE: "500"
+      OUTPUT_DIR: /opt/application/output/lab7
+      CLUSTER_COUNT: "4"
+      MODEL_SEED: "42"
+      MAX_ITERATIONS: "30"
+    volumes:
+      - ./output:/opt/application/output
+    entrypoint: ["/opt/spark/bin/spark-submit"]
+    command:
+      - --master
+      - local[2]
+      - /opt/application/src/openfoodfacts_cluster/jobs/run_lab7.py
+
+volumes:
+  hbase-data:

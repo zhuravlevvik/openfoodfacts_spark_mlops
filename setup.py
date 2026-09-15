@@ -4,7 +4,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="openfoodfacts-cluster",
-    version="0.2.0",
+    version="0.3.0",
     description="PySpark clustering pipeline for Open Food Facts",
     python_requires=">=3.10",
     package_dir={"": "src"},

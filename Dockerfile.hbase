@@ -13,6 +13,7 @@ RUN apt-get update \
 
 ENV HBASE_HOME=/opt/hbase \
     HBASE_CONF_DIR=/opt/hbase/conf \
+    HBASE_ADVERTISE_HOST=localhost \
     PATH=/opt/hbase/bin:${PATH}
 
 COPY config/hbase/hbase-site.xml /opt/hbase/conf/hbase-site.xml
@@ -21,7 +22,7 @@ COPY scripts/hbase-entrypoint.sh /usr/local/bin/hbase-entrypoint.sh
 RUN chmod 0755 /usr/local/bin/hbase-entrypoint.sh \
     && mkdir -p /var/lib/hbase/data /var/lib/hbase/zookeeper
 
-EXPOSE 8080 16010
+EXPOSE 8080 2181 16000 16010 16020 16030
 VOLUME ["/var/lib/hbase"]
 
 ENTRYPOINT ["/usr/local/bin/hbase-entrypoint.sh"]
