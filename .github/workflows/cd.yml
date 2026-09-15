@@ -192,9 +192,14 @@ jobs:
             --volumes --remove-orphans || true
 
       - name: Start published Lab 7 data mart stack
-        run: >-
-          docker compose -f compose.lab7.yml up
-          --detach --no-build --wait data-mart
+        shell: bash
+        run: |
+          if ! docker compose -f compose.lab7.yml up \
+            --detach --no-build --wait data-mart; then
+            docker compose -f compose.lab7.yml ps --all
+            docker compose -f compose.lab7.yml logs --no-color --tail=500
+            exit 1
+          fi
 
       - name: Run published Lab 7 model through the data mart
         shell: bash

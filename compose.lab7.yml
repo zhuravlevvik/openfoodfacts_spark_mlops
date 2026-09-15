@@ -63,6 +63,7 @@ services:
         condition: service_completed_successfully
     environment:
       <<: *hbase-environment
+      SPARK_LOCAL_IP: 127.0.0.1
       DATA_MART_HOST: 0.0.0.0
       DATA_MART_PORT: "8081"
       DATA_MART_PAGE_LIMIT: "1000"
