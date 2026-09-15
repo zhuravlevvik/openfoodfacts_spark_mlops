@@ -27,8 +27,38 @@ class TrainingResult:
     metrics_path: Path
 
 
+def _persist_predictions_and_metrics(
+    predictions: DataFrame,
+    model: PipelineModel | KMeans,
+    output_dir: Path,
+    metrics: dict,
+) -> tuple[Path, Path, Path]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    model_path = output_dir / "model"
+    predictions_path = output_dir / "predictions"
+    metrics_path = output_dir / "metrics.json"
+    model.write().overwrite().save(str(model_path))
+    (
+        predictions.select(
+            "code",
+            "product_name",
+            "categories",
+            F.col("cluster").cast("integer"),
+        )
+        .orderBy("code")
+        .coalesce(1)
+        .write.mode("overwrite")
+        .json(str(predictions_path))
+    )
+    metrics_path.write_text(
+        json.dumps(metrics, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return model_path, predictions_path, metrics_path
+
+
 def build_pipeline(cluster_count: int, seed: int, max_iterations: int) -> Pipeline:
-    imputed_columns = [f"{column}_imputed" for column in FEATURE_COLUMNS]
+    imputed_columns = [f"{column}__imputed" for column in FEATURE_COLUMNS]
     return Pipeline(
         stages=[
             Imputer(
@@ -52,7 +82,7 @@ def build_pipeline(cluster_count: int, seed: int, max_iterations: int) -> Pipeli
                 seed=seed,
                 maxIter=max_iterations,
                 featuresCol="features",
-                predictionCol="cluster"
+                predictionCol="cluster",
             ),
         ]
     )
@@ -82,10 +112,9 @@ def train_and_persist(
         metricName="silhouette",
         distanceMeasure="squaredEuclidean",
     ).evaluate(predictions)
-
     cluster_sizes = {
-        int(row['cluster']): int(row["count"])
-        for row in predictions.groupBy('cluster').count().orderBy("cluster").collect()
+        int(row["cluster"]): int(row["count"])
+        for row in predictions.groupBy("cluster").count().orderBy("cluster").collect()
     }
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -100,7 +129,7 @@ def train_and_persist(
             "product_name",
             "categories",
             *FEATURE_COLUMNS,
-            F.col("cluster").cast("integer")
+            F.col("cluster").cast("integer"),
         )
         .orderBy("code")
         .coalesce(1)
@@ -115,7 +144,7 @@ def train_and_persist(
         "max_iterations": max_iterations,
         "seed": seed,
         "silhouette_squared_euclidean": silhouette,
-        "usable_rows": usable_rows
+        "usable_rows": usable_rows,
     }
     metrics_path.write_text(
         json.dumps(metrics, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
@@ -126,6 +155,65 @@ def train_and_persist(
     cleaned.unpersist()
     return TrainingResult(
         input_rows=input_rows,
+        usable_rows=usable_rows,
+        silhouette=silhouette,
+        cluster_sizes=cluster_sizes,
+        model_path=model_path,
+        predictions_path=predictions_path,
+        metrics_path=metrics_path,
+    )
+
+
+def train_prepared_and_persist(
+    prepared_frame: DataFrame,
+    output_dir: Path,
+    cluster_count: int,
+    seed: int,
+    max_iterations: int,
+) -> TrainingResult:
+    """Train only KMeans because the data mart already owns preprocessing."""
+
+    usable_rows = prepared_frame.count()
+    if usable_rows < cluster_count:
+        raise ValueError(
+            f"KMeans needs at least {cluster_count} prepared rows, got {usable_rows}"
+        )
+    estimator = KMeans(
+        k=cluster_count,
+        seed=seed,
+        maxIter=max_iterations,
+        featuresCol="features",
+        predictionCol="cluster",
+    )
+    model = estimator.fit(prepared_frame)
+    predictions = model.transform(prepared_frame).cache()
+    silhouette = ClusteringEvaluator(
+        featuresCol="features",
+        predictionCol="cluster",
+        metricName="silhouette",
+        distanceMeasure="squaredEuclidean",
+    ).evaluate(predictions)
+    cluster_sizes = {
+        int(row["cluster"]): int(row["count"])
+        for row in predictions.groupBy("cluster").count().orderBy("cluster").collect()
+    }
+    metrics = {
+        "algorithm": "pyspark.ml.clustering.KMeans",
+        "cluster_count": cluster_count,
+        "cluster_sizes": cluster_sizes,
+        "input_rows": usable_rows,
+        "max_iterations": max_iterations,
+        "preprocessing_owner": "scala-data-mart",
+        "seed": seed,
+        "silhouette_squared_euclidean": silhouette,
+        "usable_rows": usable_rows,
+    }
+    model_path, predictions_path, metrics_path = _persist_predictions_and_metrics(
+        predictions, model, output_dir, metrics
+    )
+    predictions.unpersist()
+    return TrainingResult(
+        input_rows=usable_rows,
         usable_rows=usable_rows,
         silhouette=silhouette,
         cluster_sizes=cluster_sizes,

@@ -10,6 +10,8 @@ def main() -> None:
     settings = Settings.from_env()
     tables = (
         settings.hbase_raw_table,
+        settings.hbase_prepared_table,
+        settings.hbase_metadata_table,
         settings.hbase_results_table,
         settings.hbase_runs_table,
     )
