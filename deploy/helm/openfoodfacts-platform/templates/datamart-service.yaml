@@ -1,0 +1,18 @@
+{{- if .Values.dataMart.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "openfoodfacts.fullname" . }}-data-mart
+  labels:
+    {{- include "openfoodfacts.labels" . | nindent 4 }}
+    app.kubernetes.io/component: data-mart
+spec:
+  selector:
+    app.kubernetes.io/name: {{ include "openfoodfacts.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: data-mart
+  ports:
+    - name: http
+      port: {{ .Values.dataMart.servicePort }}
+      targetPort: http
+{{- end }}

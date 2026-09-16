@@ -1,0 +1,105 @@
+{{- if .Values.model.enabled }}
+{{- $mode := .Values.model.mode }}
+{{- if not (has $mode (list "lab5" "lab6" "lab7")) }}
+{{- fail "model.mode must be one of: lab5, lab6, lab7" }}
+{{- end }}
+{{- if and (eq $mode "lab6") (not .Values.hbase.enabled) }}
+{{- fail "model.mode=lab6 requires hbase.enabled" }}
+{{- end }}
+{{- if and (eq $mode "lab7") (not .Values.dataMart.enabled) }}
+{{- fail "model.mode=lab7 requires dataMart.enabled" }}
+{{- end }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "openfoodfacts.fullname" . }}-model-{{ $mode }}-{{ .Release.Revision }}
+  labels:
+    {{- include "openfoodfacts.labels" . | nindent 4 }}
+    app.kubernetes.io/component: model-launcher
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 1200
+  ttlSecondsAfterFinished: 1800
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "openfoodfacts.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: model-launcher
+    spec:
+      serviceAccountName: {{ include "openfoodfacts.serviceAccountName" . }}
+      restartPolicy: Never
+      {{- if ne $mode "lab5" }}
+      initContainers:
+        - name: wait-for-source
+          image: {{ include "openfoodfacts.image" .Values.images.model | quote }}
+          imagePullPolicy: {{ .Values.images.model.pullPolicy }}
+          command: ["python3", "-m", "openfoodfacts_cluster.jobs.wait_for_http"]
+          args:
+            - --url
+            {{- if eq $mode "lab6" }}
+            - http://{{ include "openfoodfacts.fullname" . }}-hbase:{{ .Values.hbase.servicePort }}/off_products_raw/*?limit=1
+            {{- else }}
+            - http://{{ include "openfoodfacts.fullname" . }}-data-mart:{{ .Values.dataMart.servicePort }}/health
+            {{- end }}
+            - --timeout
+            - "600"
+      {{- end }}
+      containers:
+        - name: spark-submit
+          image: {{ include "openfoodfacts.image" .Values.images.model | quote }}
+          imagePullPolicy: {{ .Values.images.model.pullPolicy }}
+          command: ["/opt/spark/bin/spark-submit"]
+          args:
+            - --master
+            - k8s://https://kubernetes.default.svc
+            - --deploy-mode
+            - cluster
+            - --name
+            - openfoodfacts-{{ $mode }}-r{{ .Release.Revision }}
+            - --conf
+            - spark.kubernetes.namespace={{ .Release.Namespace }}
+            - --conf
+            - spark.kubernetes.authenticate.driver.serviceAccountName={{ include "openfoodfacts.serviceAccountName" . }}
+            - --conf
+            - spark.kubernetes.container.image={{ include "openfoodfacts.image" .Values.images.model }}
+            - --conf
+            - spark.kubernetes.container.image.pullPolicy={{ .Values.images.model.pullPolicy }}
+            - --conf
+            - spark.kubernetes.submission.waitAppCompletion=true
+            - --conf
+            - spark.executor.instances={{ .Values.model.executorInstances }}
+            - --conf
+            - spark.kubernetes.executor.deleteOnTermination={{ not .Values.model.retainExecutorPods }}
+            - --conf
+            - spark.driver.cores={{ .Values.model.driver.cores }}
+            - --conf
+            - spark.driver.memory={{ .Values.model.driver.memory }}
+            - --conf
+            - spark.executor.cores={{ .Values.model.executor.cores }}
+            - --conf
+            - spark.executor.memory={{ .Values.model.executor.memory }}
+            - --conf
+            - spark.kubernetes.driverEnv.CLUSTER_COUNT={{ .Values.model.clusterCount }}
+            - --conf
+            - spark.kubernetes.driverEnv.MODEL_SEED={{ .Values.model.seed }}
+            - --conf
+            - spark.kubernetes.driverEnv.MAX_ITERATIONS={{ .Values.model.maxIterations }}
+            - --conf
+            - spark.kubernetes.driverEnv.HBASE_SCAN_LIMIT={{ .Values.model.scanLimit }}
+            - --conf
+            - spark.kubernetes.driverEnv.DATA_MART_PAGE_SIZE={{ .Values.model.pageSize }}
+            - --conf
+            - spark.kubernetes.driverEnv.HBASE_URL=http://{{ include "openfoodfacts.fullname" . }}-hbase:{{ .Values.hbase.servicePort }}
+            - --conf
+            - spark.kubernetes.driverEnv.DATA_MART_URL=http://{{ include "openfoodfacts.fullname" . }}-data-mart:{{ .Values.dataMart.servicePort }}
+            - --conf
+            - spark.kubernetes.driverEnv.OUTPUT_DIR=/tmp/openfoodfacts-output
+            - --conf
+            - spark.kubernetes.driverEnv.PERSIST_OUTPUTS=false
+            - --conf
+            - spark.kubernetes.executorEnv.PYSPARK_PYTHON=python3
+            - local:///opt/application/src/openfoodfacts_cluster/jobs/run_{{ $mode }}.py
+          resources:
+            {{- toYaml .Values.model.launcherResources | nindent 12 }}
+{{- end }}

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: openfoodfacts-platform
+description: Spark, Scala data mart and HBase for ITMO Big Data labs 5-8
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

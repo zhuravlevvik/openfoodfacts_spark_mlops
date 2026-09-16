@@ -1,0 +1,12 @@
+hbase:
+  enabled: true
+
+seed:
+  enabled: true
+
+dataMart:
+  enabled: true
+  replicas: 2
+
+model:
+  mode: lab7

@@ -1,0 +1,75 @@
+nameOverride: ""
+fullnameOverride: ""
+
+images:
+  model:
+    repository: openfoodfacts-model
+    tag: lab8
+    pullPolicy: IfNotPresent
+  dataMart:
+    repository: openfoodfacts-data-mart
+    tag: lab8
+    pullPolicy: IfNotPresent
+  hbase:
+    repository: openfoodfacts-hbase
+    tag: lab8
+    pullPolicy: IfNotPresent
+
+hbase:
+  enabled: true
+  servicePort: 8080
+  persistence:
+    enabled: true
+    size: 2Gi
+  resources:
+    requests:
+      cpu: 250m
+      memory: 768Mi
+    limits:
+      cpu: "1"
+      memory: 1536Mi
+
+seed:
+  enabled: true
+  activeDeadlineSeconds: 600
+
+dataMart:
+  enabled: true
+  replicas: 2
+  servicePort: 8081
+  pageLimit: 500
+  resources:
+    requests:
+      cpu: 250m
+      memory: 768Mi
+    limits:
+      cpu: "1"
+      memory: 1536Mi
+
+model:
+  enabled: true
+  mode: lab7
+  clusterCount: 4
+  seed: 42
+  maxIterations: 30
+  scanLimit: 10000
+  pageSize: 500
+  executorInstances: 2
+  retainExecutorPods: false
+  driver:
+    cores: 1
+    memory: 768m
+  executor:
+    cores: 1
+    memory: 768m
+  launcherResources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+serviceAccount:
+  create: true
+  name: ""

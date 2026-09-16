@@ -1,0 +1,12 @@
+hbase:
+  enabled: false
+
+seed:
+  enabled: false
+
+dataMart:
+  enabled: false
+
+model:
+  mode: lab5
+  executorInstances: 1

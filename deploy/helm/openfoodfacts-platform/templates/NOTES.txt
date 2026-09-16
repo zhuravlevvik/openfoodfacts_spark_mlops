@@ -1,0 +1,7 @@
+Release {{ .Release.Name }} was installed in namespace {{ .Release.Namespace }}.
+
+Inspect workloads:
+  kubectl get pods,jobs -n {{ .Release.Namespace }}
+
+Follow the Spark driver selected by the model job:
+  kubectl logs -n {{ .Release.Namespace }} -l spark-role=driver --tail=-1

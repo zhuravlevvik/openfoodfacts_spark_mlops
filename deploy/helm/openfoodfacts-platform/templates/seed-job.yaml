@@ -1,0 +1,39 @@
+{{- if and .Values.hbase.enabled .Values.seed.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "openfoodfacts.fullname" . }}-seed-{{ .Release.Revision }}
+  labels:
+    {{- include "openfoodfacts.labels" . | nindent 4 }}
+    app.kubernetes.io/component: seed
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: {{ .Values.seed.activeDeadlineSeconds }}
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "openfoodfacts.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: seed
+    spec:
+      restartPolicy: Never
+      initContainers:
+        - name: wait-for-hbase
+          image: {{ include "openfoodfacts.image" .Values.images.model | quote }}
+          imagePullPolicy: {{ .Values.images.model.pullPolicy }}
+          command: ["python3", "-m", "openfoodfacts_cluster.jobs.wait_for_http"]
+          args:
+            - --url
+            - http://{{ include "openfoodfacts.fullname" . }}-hbase:{{ .Values.hbase.servicePort }}/version/cluster
+            - --timeout
+            - "300"
+      containers:
+        - name: seed
+          image: {{ include "openfoodfacts.image" .Values.images.model | quote }}
+          imagePullPolicy: {{ .Values.images.model.pullPolicy }}
+          command: ["python3", "-m", "openfoodfacts_cluster.jobs.seed_hbase"]
+          env:
+            - name: HBASE_URL
+              value: http://{{ include "openfoodfacts.fullname" . }}-hbase:{{ .Values.hbase.servicePort }}
+{{- end }}

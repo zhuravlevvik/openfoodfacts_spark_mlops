@@ -1,0 +1,83 @@
+{{- if .Values.hbase.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "openfoodfacts.fullname" . }}-hbase
+  labels:
+    {{- include "openfoodfacts.labels" . | nindent 4 }}
+    app.kubernetes.io/component: hbase
+spec:
+  serviceName: {{ include "openfoodfacts.fullname" . }}-hbase
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "openfoodfacts.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: hbase
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "openfoodfacts.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: hbase
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: hbase
+          image: {{ include "openfoodfacts.image" .Values.images.hbase | quote }}
+          imagePullPolicy: {{ .Values.images.hbase.pullPolicy }}
+          env:
+            - name: HBASE_ADVERTISE_HOST
+              value: {{ include "openfoodfacts.fullname" . }}-hbase
+          ports:
+            - name: rest
+              containerPort: 8080
+            - name: zookeeper
+              containerPort: 2181
+            - name: master-rpc
+              containerPort: 16000
+            - name: regionserver-rpc
+              containerPort: 16020
+          readinessProbe:
+            httpGet:
+              path: /version/cluster
+              port: rest
+              httpHeaders:
+                - name: Accept
+                  value: application/json
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            failureThreshold: 24
+          livenessProbe:
+            httpGet:
+              path: /version/cluster
+              port: rest
+              httpHeaders:
+                - name: Accept
+                  value: application/json
+            initialDelaySeconds: 180
+            periodSeconds: 15
+          resources:
+            {{- toYaml .Values.hbase.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/hbase
+      {{- if not .Values.hbase.persistence.enabled }}
+      volumes:
+        - name: data
+          emptyDir: {}
+      {{- end }}
+  {{- if .Values.hbase.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "openfoodfacts.labels" . | nindent 10 }}
+          app.kubernetes.io/component: hbase
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.hbase.persistence.size }}
+  {{- end }}
+{{- end }}

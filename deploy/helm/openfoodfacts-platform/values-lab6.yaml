@@ -1,0 +1,11 @@
+hbase:
+  enabled: true
+
+seed:
+  enabled: true
+
+dataMart:
+  enabled: false
+
+model:
+  mode: lab6

@@ -1,0 +1,28 @@
+{{- if .Values.hbase.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "openfoodfacts.fullname" . }}-hbase
+  labels:
+    {{- include "openfoodfacts.labels" . | nindent 4 }}
+    app.kubernetes.io/component: hbase
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: {{ include "openfoodfacts.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: hbase
+  ports:
+    - name: rest
+      port: {{ .Values.hbase.servicePort }}
+      targetPort: rest
+    - name: zookeeper
+      port: 2181
+      targetPort: zookeeper
+    - name: master-rpc
+      port: 16000
+      targetPort: master-rpc
+    - name: regionserver-rpc
+      port: 16020
+      targetPort: regionserver-rpc
+{{- end }}

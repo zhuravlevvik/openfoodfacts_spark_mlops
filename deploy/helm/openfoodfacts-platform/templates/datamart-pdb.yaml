@@ -1,0 +1,16 @@
+{{- if and .Values.dataMart.enabled (gt (int .Values.dataMart.replicas) 1) }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "openfoodfacts.fullname" . }}-data-mart
+  labels:
+    {{- include "openfoodfacts.labels" . | nindent 4 }}
+    app.kubernetes.io/component: data-mart
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "openfoodfacts.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: data-mart
+{{- end }}
