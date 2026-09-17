@@ -36,7 +36,7 @@ spec:
               containerPort: 2181
             - name: master-rpc
               containerPort: 16000
-            - name: regionserver-rpc
+            - name: rs-rpc
               containerPort: 16020
           readinessProbe:
             httpGet:

@@ -22,7 +22,7 @@ spec:
     - name: master-rpc
       port: 16000
       targetPort: master-rpc
-    - name: regionserver-rpc
+    - name: rs-rpc
       port: 16020
-      targetPort: regionserver-rpc
+      targetPort: rs-rpc
 {{- end }}
