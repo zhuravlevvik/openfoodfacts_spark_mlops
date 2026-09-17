@@ -58,9 +58,11 @@ model:
   retainExecutorPods: false
   driver:
     cores: 1
+    requestCores: 250m
     memory: 768m
   executor:
     cores: 1
+    requestCores: 250m
     memory: 768m
   launcherResources:
     requests:

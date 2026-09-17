@@ -74,9 +74,13 @@ spec:
             - --conf
             - spark.driver.cores={{ .Values.model.driver.cores }}
             - --conf
+            - spark.kubernetes.driver.request.cores={{ .Values.model.driver.requestCores }}
+            - --conf
             - spark.driver.memory={{ .Values.model.driver.memory }}
             - --conf
             - spark.executor.cores={{ .Values.model.executor.cores }}
+            - --conf
+            - spark.kubernetes.executor.request.cores={{ .Values.model.executor.requestCores }}
             - --conf
             - spark.executor.memory={{ .Values.model.executor.memory }}
             - --conf
