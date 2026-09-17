@@ -8,6 +8,7 @@ metadata:
     app.kubernetes.io/component: hbase
 spec:
   clusterIP: None
+  publishNotReadyAddresses: true
   selector:
     app.kubernetes.io/name: {{ include "openfoodfacts.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
