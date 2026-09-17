@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import uuid
 
 from openfoodfacts_cluster.config import Settings
@@ -15,7 +14,6 @@ from openfoodfacts_cluster.spark import create_spark_session, dense_vector_from_
 def main() -> None:
     settings = Settings.from_env()
     spark = create_spark_session("openfoodfacts-kmeans-lab7", settings.master)
-
     try:
         with DataMartClient(settings.data_mart_url) as client:
             client.healthcheck()
@@ -31,27 +29,23 @@ def main() -> None:
                 ],
                 ["code", "product_name", "categories", "feature_values"],
             ).withColumn("features", dense_vector_from_array("feature_values"))
-
             result = train_prepared_and_persist(
                 prepared_frame=frame,
                 output_dir=settings.output_dir,
                 cluster_count=settings.cluster_count,
                 seed=settings.seed,
                 max_iterations=settings.max_iterations,
+                persist_outputs=settings.persist_outputs,
             )
 
-            predictions: list[dict] = []
-            for part in sorted(result.predictions_path.glob("part-*.json")):
-                with part.open(encoding="utf-8") as stream:
-                    predictions.extend(
-                        {"code": row["code"], "cluster": row["cluster"]}
-                        for row in map(json.loads, stream)
-                    )
             response = client.publish_results(
                 run_id=str(uuid.uuid4()),
                 created_at=utc_now(),
                 silhouette=result.silhouette,
-                predictions=predictions,
+                predictions=[
+                    {"code": prediction["code"], "cluster": prediction["cluster"]}
+                    for prediction in result.predictions
+                ],
             )
             print(
                 f"Data mart version {version}: trained={len(products)}, "

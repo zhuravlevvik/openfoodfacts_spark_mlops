@@ -14,6 +14,13 @@ def _positive_int(name: str, default: int) -> int:
     return value
 
 
+def _boolean(name: str, default: bool) -> bool:
+    value = os.getenv(name, str(default)).strip().lower()
+    if value not in {"true", "false"}:
+        raise ValueError(f"{name} must be true or false, got {value}")
+    return value == "true"
+
+
 @dataclass(frozen=True)
 class Settings:
     """Validated runtime settings with safe defaults for the sample dataset."""
@@ -34,6 +41,7 @@ class Settings:
     hbase_scan_limit: int
     data_mart_url: str
     data_mart_page_size: int
+    persist_outputs: bool
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -56,4 +64,5 @@ class Settings:
             hbase_scan_limit=_positive_int("HBASE_SCAN_LIMIT", 10000),
             data_mart_url=os.getenv("DATA_MART_URL", "http://data-mart:8081").rstrip("/"),
             data_mart_page_size=_positive_int("DATA_MART_PAGE_SIZE", 500),
+            persist_outputs=_boolean("PERSIST_OUTPUTS", True),
         )

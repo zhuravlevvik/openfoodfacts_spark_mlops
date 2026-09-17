@@ -22,9 +22,10 @@ class TrainingResult:
     usable_rows: int
     silhouette: float
     cluster_sizes: dict[int, int]
-    model_path: Path
-    predictions_path: Path
-    metrics_path: Path
+    predictions: tuple[dict, ...]
+    model_path: Path | None
+    predictions_path: Path | None
+    metrics_path: Path | None
 
 
 def _persist_predictions_and_metrics(
@@ -94,6 +95,7 @@ def train_and_persist(
     cluster_count: int,
     seed: int,
     max_iterations: int,
+    persist_outputs: bool = True,
 ) -> TrainingResult:
     input_rows = raw_frame.count()
     cleaned = clean_raw_products(raw_frame).cache()
@@ -117,25 +119,18 @@ def train_and_persist(
         for row in predictions.groupBy("cluster").count().orderBy("cluster").collect()
     }
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    model_path = output_dir / "model"
-    predictions_path = output_dir / "predictions"
-    metrics_path = output_dir / "metrics.json"
-
-    model.write().overwrite().save(str(model_path))
-    (
-        predictions.select(
+    prediction_records = tuple(
+        row.asDict(recursive=True)
+        for row in predictions.select(
             "code",
             "product_name",
             "categories",
-            *FEATURE_COLUMNS,
             F.col("cluster").cast("integer"),
         )
         .orderBy("code")
-        .coalesce(1)
-        .write.mode("overwrite")
-        .json(str(predictions_path))
+        .collect()
     )
+
     metrics = {
         "algorithm": "pyspark.ml.clustering.KMeans",
         "cluster_count": cluster_count,
@@ -146,10 +141,32 @@ def train_and_persist(
         "silhouette_squared_euclidean": silhouette,
         "usable_rows": usable_rows,
     }
-    metrics_path.write_text(
-        json.dumps(metrics, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    model_path: Path | None = None
+    predictions_path: Path | None = None
+    metrics_path: Path | None = None
+    if persist_outputs:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        model_path = output_dir / "model"
+        predictions_path = output_dir / "predictions"
+        metrics_path = output_dir / "metrics.json"
+        model.write().overwrite().save(str(model_path))
+        (
+            predictions.select(
+                "code",
+                "product_name",
+                "categories",
+                *FEATURE_COLUMNS,
+                F.col("cluster").cast("integer"),
+            )
+            .orderBy("code")
+            .coalesce(1)
+            .write.mode("overwrite")
+            .json(str(predictions_path))
+        )
+        metrics_path.write_text(
+            json.dumps(metrics, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
 
     predictions.unpersist()
     cleaned.unpersist()
@@ -158,6 +175,7 @@ def train_and_persist(
         usable_rows=usable_rows,
         silhouette=silhouette,
         cluster_sizes=cluster_sizes,
+        predictions=prediction_records,
         model_path=model_path,
         predictions_path=predictions_path,
         metrics_path=metrics_path,
@@ -170,6 +188,7 @@ def train_prepared_and_persist(
     cluster_count: int,
     seed: int,
     max_iterations: int,
+    persist_outputs: bool = True,
 ) -> TrainingResult:
     """Train only KMeans because the data mart already owns preprocessing."""
 
@@ -197,6 +216,17 @@ def train_prepared_and_persist(
         int(row["cluster"]): int(row["count"])
         for row in predictions.groupBy("cluster").count().orderBy("cluster").collect()
     }
+    prediction_records = tuple(
+        row.asDict(recursive=True)
+        for row in predictions.select(
+            "code",
+            "product_name",
+            "categories",
+            F.col("cluster").cast("integer"),
+        )
+        .orderBy("code")
+        .collect()
+    )
     metrics = {
         "algorithm": "pyspark.ml.clustering.KMeans",
         "cluster_count": cluster_count,
@@ -208,15 +238,20 @@ def train_prepared_and_persist(
         "silhouette_squared_euclidean": silhouette,
         "usable_rows": usable_rows,
     }
-    model_path, predictions_path, metrics_path = _persist_predictions_and_metrics(
-        predictions, model, output_dir, metrics
-    )
+    model_path: Path | None = None
+    predictions_path: Path | None = None
+    metrics_path: Path | None = None
+    if persist_outputs:
+        model_path, predictions_path, metrics_path = _persist_predictions_and_metrics(
+            predictions, model, output_dir, metrics
+        )
     predictions.unpersist()
     return TrainingResult(
         input_rows=usable_rows,
         usable_rows=usable_rows,
         silhouette=silhouette,
         cluster_sizes=cluster_sizes,
+        predictions=prediction_records,
         model_path=model_path,
         predictions_path=predictions_path,
         metrics_path=metrics_path,

@@ -23,7 +23,8 @@ for attempt in $(seq 1 60); do
 done
 
 for table in off_products_raw off_products_prepared off_datamart_meta off_cluster_results off_model_runs; do
-  if ! echo "exists '${table}'" | "${HBASE_HOME}/bin/hbase" shell -n | grep -q "true"; then
+  exists_output="$(echo "exists '${table}'" | "${HBASE_HOME}/bin/hbase" shell -n)"
+  if [[ "${exists_output}" != *"true"* ]]; then
     case "${table}" in
       off_products_raw)
         echo "create '${table}', 'info', 'nutrition'" ;;

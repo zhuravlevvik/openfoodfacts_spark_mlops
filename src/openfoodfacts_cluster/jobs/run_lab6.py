@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import json
 import uuid
-from pathlib import Path
 
 from openfoodfacts_cluster.config import Settings
 from openfoodfacts_cluster.contracts import (
@@ -17,13 +15,10 @@ from openfoodfacts_cluster.modeling import train_and_persist
 from openfoodfacts_cluster.spark import create_spark_session
 
 
-def _prediction_rows(predictions_path: Path, run_id: str, created_at: str):
-    for part in sorted(predictions_path.glob("part-*.json")):
-        with part.open(encoding="utf-8") as stream:
-            for line in stream:
-                prediction = json.loads(line)
-                row_key = f"{run_id}:{prediction['code']}"
-                yield row_key, prediction_to_hbase(prediction, run_id, created_at)
+def _prediction_rows(predictions: tuple[dict, ...], run_id: str, created_at: str):
+    for prediction in predictions:
+        row_key = f"{run_id}:{prediction['code']}"
+        yield row_key, prediction_to_hbase(prediction, run_id, created_at)
 
 
 def main() -> None:
@@ -52,12 +47,13 @@ def main() -> None:
                 cluster_count=settings.cluster_count,
                 seed=settings.seed,
                 max_iterations=settings.max_iterations,
+                persist_outputs=settings.persist_outputs,
             )
 
             completed_at = utc_now()
             published = client.put_rows(
                 settings.hbase_results_table,
-                _prediction_rows(result.predictions_path, run_id, completed_at),
+                _prediction_rows(result.predictions, run_id, completed_at),
             )
             client.put_row(
                 settings.hbase_runs_table,
@@ -83,7 +79,7 @@ def main() -> None:
                     {
                         "run:status": "failed",
                         "run:started_at": started_at,
-                        "run:failed_at": utc_now()
+                        "run:failed_at": utc_now(),
                     },
                 )
         finally:

@@ -1,4 +1,4 @@
-"""Train the lab5 model from an Open Food Facts TSV export."""
+"""Train the laboratory №5 model from an Open Food Facts TSV export."""
 
 from __future__ import annotations
 
@@ -18,7 +18,8 @@ def main() -> None:
             output_dir=settings.output_dir,
             cluster_count=settings.cluster_count,
             seed=settings.seed,
-            max_iterations=settings.max_iterations
+            max_iterations=settings.max_iterations,
+            persist_outputs=settings.persist_outputs,
         )
         print(
             "Training completed: "
