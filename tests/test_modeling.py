@@ -23,6 +23,7 @@ def test_training_persists_model_predictions_and_metrics(spark, tmp_path) -> Non
     metrics = json.loads(result.metrics_path.read_text(encoding="utf-8"))
     assert result.input_rows == 42
     assert result.usable_rows == 40
+    assert len(result.predictions) == 40
     assert sum(result.cluster_sizes.values()) == 40
     assert -1.0 <= result.silhouette <= 1.0
     assert metrics["cluster_count"] == 4

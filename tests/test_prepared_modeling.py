@@ -17,9 +17,17 @@ def test_prepared_training_uses_ready_feature_vector(spark, tmp_path) -> None:
     ).withColumn("features", dense_vector_from_array("feature_values"))
 
     result = train_prepared_and_persist(
-        frame, tmp_path / "lab7", cluster_count=3, seed=42, max_iterations=10
+        frame,
+        tmp_path / "lab7",
+        cluster_count=3,
+        seed=42,
+        max_iterations=10,
+        persist_outputs=False,
     )
 
     assert result.usable_rows == 12
     assert sum(result.cluster_sizes.values()) == 12
-    assert result.model_path.is_dir()
+    assert len(result.predictions) == 12
+    assert result.model_path is None
+    assert result.predictions_path is None
+    assert result.metrics_path is None
