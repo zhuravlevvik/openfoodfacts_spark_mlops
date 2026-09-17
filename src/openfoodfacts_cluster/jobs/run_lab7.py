@@ -13,7 +13,7 @@ from openfoodfacts_cluster.spark import create_spark_session, dense_vector_from_
 
 def main() -> None:
     settings = Settings.from_env()
-    spark = create_spark_session("openfoodfacts-kmeans-lab7", settings.master)
+    spark = create_spark_session("openfoodfacts-kmeans-lab7")
     try:
         with DataMartClient(settings.data_mart_url) as client:
             client.healthcheck()
