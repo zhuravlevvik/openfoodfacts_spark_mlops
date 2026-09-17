@@ -16,9 +16,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lab5-lab7-build-and-test:
+  lab5-lab8-build-and-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 110
 
     steps:
       - name: Checkout
@@ -36,6 +36,21 @@ jobs:
 
       - name: Lint Python sources
         run: ruff check .
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v5.0.0
+        with:
+          version: v4.2.4
+
+      - name: Validate Lab 8 Helm chart
+        run: |
+          for values_file in values-lab5.yaml values-lab6.yaml values-lab7.yaml; do
+            helm lint deploy/helm/openfoodfacts-platform --strict \
+              --values "deploy/helm/openfoodfacts-platform/$values_file"
+            helm template openfoodfacts deploy/helm/openfoodfacts-platform \
+              --values "deploy/helm/openfoodfacts-platform/$values_file" \
+              > "/tmp/openfoodfacts-$values_file"
+          done
 
       - name: Resolve image names
         shell: bash
@@ -260,6 +275,41 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      - name: Stop Compose before Lab 8 acceptance
+        if: always()
+        run: |
+          docker compose -f compose.lab7.yml logs \
+            --no-color --tail=500 > output/lab7-compose.log 2>&1 || true
+          docker compose -f compose.lab7.yml down \
+            --volumes --remove-orphans || true
+
+      - name: Tag tested images for kind
+        run: |
+          docker tag "$OPENFOODFACTS_IMAGE:$GITHUB_SHA" openfoodfacts-model:lab8
+          docker tag "$OPENFOODFACTS_IMAGE:data-mart-$GITHUB_SHA" \
+            openfoodfacts-data-mart:lab8
+          docker tag "$OPENFOODFACTS_IMAGE:hbase-$GITHUB_SHA" \
+            openfoodfacts-hbase:lab8
+
+      - name: Create Lab 8 Kubernetes cluster
+        uses: helm/kind-action@v1.14.0
+        with:
+          version: v0.32.0
+          kubectl_version: v1.36.1
+          cluster_name: openfoodfacts-lab8
+          config: config/kind-cluster.yaml
+          wait: 120s
+
+      - name: Load tested images into kind
+        run: |
+          kind load docker-image --name openfoodfacts-lab8 \
+            openfoodfacts-model:lab8 \
+            openfoodfacts-data-mart:lab8 \
+            openfoodfacts-hbase:lab8
+
+      - name: Run Lab 8 Kubernetes acceptance
+        run: ./scripts/k8s-acceptance.sh
+
       - name: Log in to GitHub Container Registry
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@v3
@@ -280,11 +330,35 @@ jobs:
           docker push "$OPENFOODFACTS_IMAGE:data-mart-$GITHUB_SHA"
           docker push "$OPENFOODFACTS_IMAGE:data-mart-latest"
 
-      - name: Collect Lab 6 and Lab 7 Compose logs
+      - name: Collect Lab 6-Lab 8 diagnostics
         if: always()
         run: |
           test ! -f output/lab6-compose.log || cat output/lab6-compose.log
-          docker compose -f compose.lab7.yml logs --no-color --tail=500 || true
+          test ! -f output/lab7-compose.log || cat output/lab7-compose.log
+          if kubectl cluster-info >/dev/null 2>&1; then
+            mkdir -p output/lab8
+            kubectl get pods,jobs,statefulsets,deployments,services,pvc,pdb \
+              --namespace openfoodfacts --output wide \
+              | tee output/lab8/resources-final.txt || true
+            kubectl get events --namespace openfoodfacts \
+              --sort-by=.metadata.creationTimestamp \
+              > output/lab8/events.txt || true
+            for pod in $(kubectl get pods --namespace openfoodfacts \
+              --output jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+              kubectl logs "$pod" --namespace openfoodfacts \
+                --all-containers --tail=300 \
+                > "output/lab8/${pod}.log" 2>&1 || true
+            done
+          fi
+
+      - name: Upload Lab 8 Kubernetes evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lab8-${{ github.sha }}
+          path: output/lab8
+          if-no-files-found: ignore
+          retention-days: 30
 
       - name: Clean up Compose resources
         if: always()

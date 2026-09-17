@@ -28,8 +28,8 @@ services:
       - /opt/application/src/openfoodfacts_cluster/jobs/wordcount.py
       - --input
       - /opt/application/data/sample/wordcount.txt
-    
 
+  
   tests:
     image: *test-image
     build:
@@ -54,7 +54,12 @@ services:
     volumes:
       - ./data/sample:/opt/application/data/sample:ro
       - ./output:/opt/application/output
-    
+    entrypoint: ["/opt/spark/bin/spark-submit"]
+    command:
+      - --master
+      - local[2]
+      - /opt/application/src/openfoodfacts_cluster/jobs/run_lab5.py
+
   distribution:
     image: *runtime-image
     build:

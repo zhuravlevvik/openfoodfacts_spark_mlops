@@ -20,15 +20,15 @@ RUN mkdir -p /opt/application/output /tmp/spark \
 
 USER spark
 
-ENTRYPOINT [ "/opt/spark/bin/spark-submit" ]
-CMD [ "--master", "local[2]", "/opt/application/src/openfoodfacts_cluster/jobs/run_lab5.py" ]
+ENTRYPOINT [ "/opt/entrypoint.sh" ]
+CMD [ "/opt/spark/bin/spark-submit", "--master", "local[2]", "/opt/application/src/openfoodfacts_cluster/jobs/run_lab5.py" ]
 
 FROM runtime AS test
 
 USER root
 RUN python3 -m pip install --no-cache-dir ".[dev]"
 COPY tests ./tests
-USER spark 
+USER spark
 
 ENTRYPOINT [ "python3", "-m", "pytest" ]
 CMD ["tests"]

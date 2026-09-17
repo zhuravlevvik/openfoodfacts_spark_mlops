@@ -28,7 +28,7 @@ jobs:
       (github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 100
 
     steps:
       - name: Resolve source commit and image tag
@@ -72,6 +72,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set up Helm
+        uses: azure/setup-helm@v5.0.0
+        with:
+          version: v4.2.4
+
       - name: Pull exact images published by CI
         run: |
           docker pull "$OPENFOODFACTS_IMAGE:$IMAGE_TAG"
@@ -84,6 +89,16 @@ jobs:
           docker compose -f compose.lab5.yml config --quiet
           docker compose -f compose.lab6.yml config --quiet
           docker compose -f compose.lab7.yml config --quiet
+
+      - name: Validate Lab 8 Helm chart
+        run: |
+          for values_file in values-lab5.yaml values-lab6.yaml values-lab7.yaml; do
+            helm lint deploy/helm/openfoodfacts-platform --strict \
+              --values "deploy/helm/openfoodfacts-platform/$values_file"
+            helm template openfoodfacts deploy/helm/openfoodfacts-platform \
+              --values "deploy/helm/openfoodfacts-platform/$values_file" \
+              > "/tmp/openfoodfacts-$values_file"
+          done
 
       - name: Prepare writable artifact directories
         run: |
@@ -241,11 +256,69 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Collect Lab 6 and Lab 7 Compose logs
+      - name: Stop Compose before Lab 8 acceptance
+        if: always()
+        run: |
+          docker compose -f compose.lab7.yml logs \
+            --no-color --tail=500 > output/lab7-compose.log 2>&1 || true
+          docker compose -f compose.lab7.yml down \
+            --volumes --remove-orphans || true
+
+      - name: Create Lab 8 Kubernetes cluster
+        uses: helm/kind-action@v1.14.0
+        with:
+          version: v0.32.0
+          kubectl_version: v1.36.1
+          cluster_name: openfoodfacts-lab8
+          config: config/kind-cluster.yaml
+          wait: 120s
+
+      - name: Load published images into kind
+        run: |
+          kind load docker-image --name openfoodfacts-lab8 \
+            "$OPENFOODFACTS_IMAGE:$IMAGE_TAG" \
+            "$OPENFOODFACTS_IMAGE:data-mart-$IMAGE_TAG" \
+            "$OPENFOODFACTS_IMAGE:hbase-$IMAGE_TAG"
+
+      - name: Run published Lab 8 Kubernetes acceptance
+        env:
+          MODEL_REPOSITORY: ${{ env.OPENFOODFACTS_IMAGE }}
+          MODEL_TAG: ${{ env.IMAGE_TAG }}
+          DATA_MART_REPOSITORY: ${{ env.OPENFOODFACTS_IMAGE }}
+          DATA_MART_TAG: data-mart-${{ env.IMAGE_TAG }}
+          HBASE_REPOSITORY: ${{ env.OPENFOODFACTS_IMAGE }}
+          HBASE_TAG: hbase-${{ env.IMAGE_TAG }}
+        run: ./scripts/k8s-acceptance.sh
+
+      - name: Collect Lab 6-Lab 8 diagnostics
         if: always()
         run: |
           test ! -f output/lab6-compose.log || cat output/lab6-compose.log
-          docker compose -f compose.lab7.yml logs --no-color --tail=500 || true
+          test ! -f output/lab7-compose.log || cat output/lab7-compose.log
+          if kubectl cluster-info >/dev/null 2>&1; then
+            mkdir -p output/lab8
+            kubectl get pods,jobs,statefulsets,deployments,services,pvc,pdb \
+              --namespace openfoodfacts --output wide \
+              | tee output/lab8/resources-final.txt || true
+            kubectl get events --namespace openfoodfacts \
+              --sort-by=.metadata.creationTimestamp \
+              > output/lab8/events.txt || true
+            for pod in $(kubectl get pods --namespace openfoodfacts \
+              --output jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+              kubectl logs "$pod" --namespace openfoodfacts \
+                --all-containers --tail=300 \
+                > "output/lab8/${pod}.log" 2>&1 || true
+            done
+          fi
+
+      - name: Upload accepted Lab 8 Kubernetes evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lab8-accepted-${{ steps.source.outputs.tag }}
+          path: output/lab8
+          if-no-files-found: ignore
+          retention-days: 30
 
       - name: Clean up Compose resources
         if: always()
